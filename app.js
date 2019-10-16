@@ -2,6 +2,7 @@ const request = require('request');
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
+const jwt = require('jsonwebtoken');
 
 const server = express();
 
@@ -9,6 +10,48 @@ server.use(cors());
 server.use(bodyParser.json());
 
 //ENDPOINTS
+
+//Login: only email necessary
+server.post('/login', (req, res) => {
+    let loginEmail = req.body.email;
+
+    if (loginEmail == undefined || loginEmail == "") {
+        //No email in the request body
+        res.status(400).send({
+            "message": "No email address was provided"
+        })
+    } else {
+        request('http://www.mocky.io/v2/5808862710000087232b75ac', (error, response, body) => {
+            if (error) throw error
+            else {
+                //Get all data of user with the login email
+                let allClients = JSON.parse(body).clients;
+                let clientData = allClients.filter(client => client["email"] === loginEmail)[0]
+
+                if (clientData) {
+                    //Generate token for logged user
+                    jwt.sign({
+                        "email": clientData["email"],
+                        "id": clientData["id"],
+                        "name": clientData["name"],
+                        "role": clientData["role"]
+                    }, "jwtpassword", (err, token) => {
+                        if (err) throw (err)
+                        console.log("Login successful.")
+                        res.status(200).send({
+                            "token": token,
+                        })
+                    });
+                } else {
+                    //Email of user is not in the database
+                    res.status(400).send({
+                        "message": "Email provided is not valid."
+                    })
+                }
+            }
+        });
+    }
+})
 
 //Get list of all clients
 server.get("/clients", (req, res) => {
