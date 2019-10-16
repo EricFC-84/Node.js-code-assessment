@@ -18,7 +18,7 @@ server.post('/login', (req, res) => {
     if (loginEmail == undefined || loginEmail == "") {
         //No email in the request body
         res.status(400).send({
-            "message": "No email address was provided"
+            "message": "No email address was provided."
         })
     } else {
         request('http://www.mocky.io/v2/5808862710000087232b75ac', (error, response, body) => {
@@ -37,7 +37,6 @@ server.post('/login', (req, res) => {
                         "role": clientData["role"]
                     }, "jwtpassword", (err, token) => {
                         if (err) throw (err)
-                        console.log("Login successful.")
                         res.status(200).send({
                             "token": token,
                         })
@@ -80,7 +79,7 @@ server.get("/clientID/:id", (req, res) => {
                 })
             } else {
                 res.status(404).send({
-                    "message": "Client not found. Please check the ID is correct"
+                    "message": "Client not found. Please check the ID is correct."
                 })
             }
         }
@@ -103,7 +102,7 @@ server.get("/clientName/:name", (req, res) => {
                 })
             } else {
                 res.status(404).send({
-                    "message": "Client not found. Please check the name is correct"
+                    "message": "Client not found. Please check the name is correct."
                 })
             }
         }
@@ -124,107 +123,136 @@ server.get("/policies", (req, res) => {
 //Get list of policies linked to a client name
 server.get("/policiesOfClient/:clientName", (req, res) => {
 
-    let authToken = req.headers["authorization"];
-    authToken = authToken.replace("Bearer ", "")
-
-    jwt.verify(authToken, "jwtpassword", (err, decoded) => {
-        if (err) throw err
-        else {
-            //User is valid, but only admin can proceed
-            if (decoded["role"] != "admin") {
-                res.status(401).send({
-                    "message": "Unauthorized user"
-                })
-            } else {
-                request('http://www.mocky.io/v2/5808862710000087232b75ac', (error, response, clientsBody) => {
-                    if (error) throw error
-                    else {
-                        let allClients = JSON.parse(clientsBody).clients;
-                        let _name = req.params.clientName;
-                        let clientData = allClients.filter(client => client["name"] === _name)[0];
-
-                        if (clientData) {
-                            request('http://www.mocky.io/v2/580891a4100000e8242b75c5', (error, response, policiesBody) => {
-                                if (error) throw error
-                                else {
-                                    let allPolicies = JSON.parse(policiesBody).policies;
-                                    let policiesOfUser = allPolicies.filter(policy => policy["clientId"] === clientData["id"]);
-
-                                    if (policiesOfUser.length == 0) {
-                                        //That client has no policies linked to them
-                                        res.status(404).send({
-                                            "message": "No policies linked to this client were found. Please check the name is correct"
-                                        })
-                                    } else {
-                                        res.status(200).send({
-                                            "data": policiesOfUser
-                                        })
-                                    }
+    try {
+        let authToken = req.headers["authorization"];
+        if (!authToken) {
+            res.status(401).send({
+                "message": "Unauthorized user. Authentication token is required."
+            })
+        } else {
+            authToken = authToken.replace("Bearer ", "")
+    
+            jwt.verify(authToken, "jwtpassword", (err, decoded) => {
+                if (err) throw "Unauthorized user. Token provided is not valid."
+                else {
+                    //User is valid, but only admin can proceed
+                    if (decoded["role"] != "admin") {
+                        res.status(401).send({
+                            "message": "Unauthorized user."
+                        })
+                    } else {
+                        request('http://www.mocky.io/v2/5808862710000087232b75ac', (error, response, clientsBody) => {
+                            if (error) throw error
+                            else {
+                                let allClients = JSON.parse(clientsBody).clients;
+                                let _name = req.params.clientName;
+                                let clientData = allClients.filter(client => client["name"] === _name)[0];
+    
+                                if (clientData) {
+                                    request('http://www.mocky.io/v2/580891a4100000e8242b75c5', (error, response, policiesBody) => {
+                                        if (error) throw error
+                                        else {
+                                            let allPolicies = JSON.parse(policiesBody).policies;
+                                            let policiesOfUser = allPolicies.filter(policy => policy["clientId"] === clientData["id"]);
+    
+                                            if (policiesOfUser.length == 0) {
+                                                //That client has no policies linked to them
+                                                res.status(404).send({
+                                                    "message": "No policies linked to this client were found. Please check the name is correct."
+                                                })
+                                            } else {
+                                                res.status(200).send({
+                                                    "data": policiesOfUser
+                                                })
+                                            }
+                                        }
+                                    });
+                                } else {
+                                    res.status(404).send({
+                                        "message": "Client not found. Please check the name is correct."
+                                    })
                                 }
-                            });
-                        } else {
-                            res.status(404).send({
-                                "message": "Client not found. Please check the name is correct"
-                            })
-                        }
+                            }
+                        });
                     }
-                });
-            }
+                }
+            })
         }
-    })
+    }
+    catch (e) {
+        res.status(401).send({
+            "message": e
+        });
+    }
+    
 })
 
 //Get client data linked to a policy id
 server.get("/policyClient/:policyId", (req, res) => {
-    let authToken = req.headers["authorization"];
-    authToken = authToken.replace("Bearer ", "")
 
-    jwt.verify(authToken, "jwtpassword", (err, decoded) => {
-        if (err) throw err
-        else {
-
-            //User is valid, but only admin can proceed
-            if (decoded["role"] != "admin") {
-                res.status(401).send({
-                    "message": "Unauthorized user"
-                })
-            } else {
-                request('http://www.mocky.io/v2/580891a4100000e8242b75c5', (error, response, policiesBody) => {
-
-                    if (error) throw error
-                    else {
-                        let allPolicies = JSON.parse(policiesBody).policies
-                        let _id = req.params.policyId;
-                        let policyData = allPolicies.filter(policy => policy["id"] === _id)[0];
-
-                        if (policyData) {
-                            request('http://www.mocky.io/v2/5808862710000087232b75ac', (error, response, clientsBody) => {
-                                if (error) throw error
-                                else {
-                                    let allClients = JSON.parse(clientsBody).clients
-                                    let clientData = allClients.filter(client => client["id"] === policyData["clientId"])[0];
-                                    if (clientData) {
-                                        res.status(200).send({
-                                            "data": clientData
-                                        })
-                                    } else {
-                                        //That policy has no clients linked to them
-                                        res.status(404).send({
-                                            "message": "No clients linked to this policy were found. Please check the policy Id is correct"
-                                        })
-                                    }
+    try {
+        let authToken = req.headers["authorization"];
+        if (!authToken) {
+            res.status(401).send({
+                "message": "Unauthorized user. Authentication token is required."
+            })
+        } else {
+            authToken = authToken.replace("Bearer ", "")
+    
+            jwt.verify(authToken, "jwtpassword", (err, decoded) => {
+                if (err) throw "Unauthorized user. Token provided is not valid."
+                else {
+    
+                    //User is valid, but only admin can proceed
+                    if (decoded["role"] != "admin") {
+                        res.status(401).send({
+                            "message": "Unauthorized user."
+                        })
+                    } else {
+                        request('http://www.mocky.io/v2/580891a4100000e8242b75c5', (error, response, policiesBody) => {
+    
+                            if (error) throw error
+                            else {
+                                let allPolicies = JSON.parse(policiesBody).policies
+                                let _id = req.params.policyId;
+                                let policyData = allPolicies.filter(policy => policy["id"] === _id)[0];
+    
+                                if (policyData) {
+                                    request('http://www.mocky.io/v2/5808862710000087232b75ac', (error, response, clientsBody) => {
+                                        if (error) throw error
+                                        else {
+                                            let allClients = JSON.parse(clientsBody).clients
+                                            let clientData = allClients.filter(client => client["id"] === policyData["clientId"])[0];
+                                            if (clientData) {
+                                                res.status(200).send({
+                                                    "data": clientData
+                                                })
+                                            } else {
+                                                //That policy has no clients linked to them
+                                                res.status(404).send({
+                                                    "message": "No clients linked to this policy were found. Please check the policy Id is correct."
+                                                })
+                                            }
+                                        }
+                                    })
+                                } else {
+                                    res.status(404).send({
+                                        "message": "Policy not found. Please check the policy Id is correct."
+                                    })
                                 }
-                            })
-                        } else {
-                            res.status(404).send({
-                                "message": "Policy not found. Please check the policy Id is correct"
-                            })
-                        }
+                            }
+                        })
                     }
-                })
-            }
+                }
+            })
         }
-    })
+    }
+    catch (e) {
+        res.status(401).send({
+            "message": e
+        });
+    }
+    
 })
 
 server.listen(3000, () => {
